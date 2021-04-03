@@ -1,3 +1,6 @@
+#Requires -Version 7.0.0
+#Requires -Module Write-ProgressEx
+
 [CmdletBinding()]
 param (
     [Parameter(Mandatory)]
@@ -66,14 +69,16 @@ $cropdetectargs += @(
   '-max_muxing_queue_size', '4096', 
   '-f', 'null', 'NUL')
 
-& $ffmpegbinary @cropdetectargs *>&1 | 
-  Foreach-Object {
-    $_ -match 't:([\d]*).*?(crop=[-\d:]*)' | Out-Null
-    if ($matches[1] -ge 0) {
-      Write-Progress -Activity 'Detecting crop settings' -Status "t=$($matches[1]) $($matches[2])" -PercentComplete $($([int]$matches[1] / $CropScan)*100)
+$crop = & $ffmpegbinary @cropdetectargs *>&1 | Where-Object { $_ -match 't:(?<Time>[\d]*).*?(?<Crop>crop=[-\d:]*)' } | ForEach-Object {
+    $ProgressParam = @{
+        Activity = 'Detecting crop settings'
+        Status   = 'time={0} {1}' -f $Matches['Time'], $Matches['Crop']
+        Current  = [int] $Matches['Time']
+        Total    = $CropScan
     }
-  }
-  $crop = $matches[2]
+    Write-ProgressEx @ProgressParam
+    Write-Output $Matches['Crop']
+} | Select-Object -Last 1
 Write-Host "Using $crop"
 
 # Extract and normalize color settings
