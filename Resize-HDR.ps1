@@ -113,7 +113,7 @@ $contentlightlevel = @{
 }
 
 $encodeargs = @(
-  '-hide_banner', '-loglevel', 'quiet', '-stats',
+  '-hide_banner', '-loglevel', 'warning', '-stats',
   '-analyzeduration', '6000M',
   '-probesize', '6000M'
 )
