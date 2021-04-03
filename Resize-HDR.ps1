@@ -86,7 +86,7 @@ Write-Host 'Detecting color space and HDR parameters'
 $ffprobeargs = @(
   '-hide_banner',
   '-loglevel', 'warning'
-  '-select_stream', 'v'
+  '-select_streams', 'v'
   '-analyzeduration', '6000M',
   '-probesize', '6000M',
   '-print_format', 'json',
