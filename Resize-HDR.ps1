@@ -96,25 +96,21 @@ $ffprobeargs = @(
   '-i', $InputFile
 )
 $rawprobe = & $ffprobebinary @ffprobeargs
-$hdrmeta = ($rawprobe | ConvertFrom-Json).Frames
+$hdrmeta = ($rawprobe | ConvertFrom-Json -AsHashtable)['frames']
+
+$DisplayMeta = $hdrmeta.side_data_list.Where{ $_['side_data_type'] -like '*display metadata*' }[0]
+$LightMeta = $hdrmeta.side_data_list.Where{ $_['side_data_type'] -like '*light level metadata*' }[0]
 
 $colordata = @{}
-$colordata['red_x'] = [int]$($hdrmeta.side_data_list.red_x -split '/')[0] * (50000 / ($($hdrmeta.side_data_list.red_x -split '/')[1]))
-$colordata['red_y'] = [int]$($hdrmeta.side_data_list.red_y -split '/')[0] * (50000 / ($($hdrmeta.side_data_list.red_y -split '/')[1]))
-$colordata['green_x'] = [int]$($hdrmeta.side_data_list.green_x -split '/')[0] * (50000 / ($($hdrmeta.side_data_list.green_x -split '/')[1]))
-$colordata['green_y'] = [int]$($hdrmeta.side_data_list.green_y -split '/')[0] * (50000 / ($($hdrmeta.side_data_list.green_y -split '/')[1]))
-$colordata['blue_x'] = [int]$($hdrmeta.side_data_list.blue_x -split '/')[0] * (50000 / ($($hdrmeta.side_data_list.blue_x -split '/')[1]))
-$colordata['blue_y'] = [int]$($hdrmeta.side_data_list.blue_y -split '/')[0] * (50000 / ($($hdrmeta.side_data_list.blue_y -split '/')[1]))
-$colordata['white_point_x'] = [int]$($hdrmeta.side_data_list.white_point_x -split '/')[0] * (50000 / ($($hdrmeta.side_data_list.white_point_x -split '/')[1]))
-$colordata['white_point_y'] = [int]$($hdrmeta.side_data_list.white_point_y -split '/')[0] * (50000 / ($($hdrmeta.side_data_list.white_point_y -split '/')[1]))
-
-$colordata['max_luminance'] = [int]($($hdrmeta.side_data_list.max_luminance -split '/')[0] * (10000 / ($($hdrmeta.side_data_list.max_luminance -split '/')[1])))
-$colordata['min_luminance'] = [int]($($hdrmeta.side_data_list.min_luminance -split '/')[0] * (10000 / ($($hdrmeta.side_data_list.min_luminance -split '/')[1])))
-
+$Pattern = [regex]::new( '^(?<Dividend>.*)\/(?<Divisor>.*)$' )
+@('red', 'green', 'blue', 'white_point').ForEach{ "$_`_x", "$_`_y" }, 'min_luminance', 'max_luminance' | Write-Output -PipelineVariable Property | ForEach-Object {
+    $Dividend, $Divisor = [int[]] $Pattern.Match( $DisplayMeta[ $Property ] ).Groups[ 'Dividend', 'Divisor' ].Value
+    $colordata[ $Property ] = $Dividend * ( $Property -match '(min|max)_luminance' ? 10000 : 50000  ) / $Divisor
+}
 $contentlightlevel = @{
-  'max_content' = [int]$hdrmeta.side_data_list.max_content;
-  'max_avg' = [int]$hdrmeta.side_data_list.max_average;
-} 
+    'max_content' = [int] $LightMeta['max_content']
+    'max_avg'     = [int] $LightMeta['max_average']
+}
 
 $encodeargs = @(
   '-hide_banner',
